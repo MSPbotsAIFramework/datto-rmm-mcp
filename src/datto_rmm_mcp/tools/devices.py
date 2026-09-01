@@ -20,7 +20,14 @@ def register(mcp: FastMCP, client_factory: Callable[[], DattoClient | None]) -> 
     @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
     async def dattormm_get_devices(
         page: Annotated[
-            int | None, Field(description="Optional 0-based page number, for paging through a large fleet.")
+            int | None,
+            Field(
+                description=(
+                    "Optional 0-based page number, for paging through a large fleet. "
+                    'If the operator says "page 2" meaning the second page, pass 1, '
+                    "not 2 — this is a 0-based index, not a 1-based page count."
+                )
+            ),
         ] = None,
         max_results: Annotated[
             int | None, Field(description="Optional page size. Omit for Datto's own default.")
