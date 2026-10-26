@@ -34,11 +34,7 @@ def test_missing_header_returns_401_with_required_headers_listed():
         )
         assert resp.status_code == 401
         body = resp.json()
-        assert body["required_headers"] == [
-            "X-Datto-Api-Key",
-            "X-Datto-Api-Secret",
-            "X-Datto-Api-Url",
-        ]
+        assert body["required_headers"] == ["X-Datto-Api-Key", "X-Datto-Api-Secret"]
 
 
 def test_missing_single_header_still_returns_401():
@@ -50,8 +46,7 @@ def test_missing_single_header_still_returns_401():
             headers={
                 "Accept": "application/json, text/event-stream",
                 "X-Datto-Api-Key": "dummy-key",
-                "X-Datto-Api-Secret": "dummy-secret",
-                # X-Datto-Api-Url intentionally omitted
+                # X-Datto-Api-Secret intentionally omitted
             },
         )
         assert resp.status_code == 401
@@ -107,3 +102,28 @@ def test_header_present_reaches_request_context(monkeypatch):
 def test_client_factory_returns_none_without_context():
     settings = Settings()
     assert get_client_from_context(settings) is None
+
+
+def test_region_resolution():
+    from datto_rmm_mcp.server import resolve_api_url
+
+    assert resolve_api_url("zinfandel-api.centrastage.net", "merlot") == "zinfandel-api.centrastage.net"
+    assert resolve_api_url(None, "Merlot") == "https://merlot-api.centrastage.net"
+    assert resolve_api_url(None, None) == "https://concord-api.centrastage.net"
+    assert resolve_api_url("", "probe-placeholder") == ""
+
+
+def test_placeholder_headers_still_list_tools():
+    app, _ = _make_app()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+            headers={
+                "Accept": "application/json, text/event-stream",
+                "X-Datto-API-Key": "probe-placeholder",
+                "X-Datto-API-Secret": "probe-placeholder",
+                "X-Datto-Platform": "probe-placeholder",
+            },
+        )
+        assert resp.status_code == 200

@@ -27,6 +27,27 @@ class _GatewayCreds(NamedTuple):
 # secret worth guarding at a gateway). So this server does its own token
 # exchange per request (see api_client.DattoClient), same as most vendor-mcp
 # services in this fleet — it never caches a token beyond one request.
+# Datto RMM platform name -> regional API host. The platform's credential form asks for the
+# platform name (X-Datto-Platform, default "concord"); X-Datto-Api-Url still wins when sent.
+PLATFORM_URLS = {
+    "concord": "https://concord-api.centrastage.net",
+    "merlot": "https://merlot-api.centrastage.net",
+    "pinotage": "https://pinotage-api.centrastage.net",
+    "syrah": "https://syrah-api.centrastage.net",
+    "vidal": "https://vidal-api.centrastage.net",
+    "zinfandel": "https://zinfandel-api.centrastage.net",
+}
+DEFAULT_PLATFORM = "concord"
+
+
+def resolve_api_url(api_url: str | None, platform: str | None) -> str:
+    """X-Datto-Api-Url if given, else the host for X-Datto-Platform (default concord).
+    Returns "" for an unknown platform so tools report it instead of the middleware rejecting it."""
+    if api_url and api_url.strip():
+        return api_url.strip()
+    return PLATFORM_URLS.get((platform or DEFAULT_PLATFORM).strip().lower(), "")
+
+
 _gateway_creds_var: contextvars.ContextVar[_GatewayCreds | None] = contextvars.ContextVar(
     "datto_gateway_creds", default=None
 )
@@ -35,7 +56,7 @@ _gateway_creds_var: contextvars.ContextVar[_GatewayCreds | None] = contextvars.C
 def get_client_from_context(settings: Settings) -> DattoClient | None:
     """Resolve the active DattoClient for the current request context."""
     creds = _gateway_creds_var.get()
-    if not creds:
+    if not creds or not creds.api_url:
         return None
     return DattoClient(creds.api_key, creds.api_secret, creds.api_url)
 
@@ -43,13 +64,11 @@ def get_client_from_context(settings: Settings) -> DattoClient | None:
 class GatewayTokenMiddleware:
     """ASGI middleware.
 
-    Reads X-Datto-Api-Key, X-Datto-Api-Secret, and X-Datto-Api-Url (all
-    required) from request headers and stores them in the contextvar.
-    X-Datto-Api-Url is the tenant's region-specific API host (Datto RMM is
-    multi-region; each tenant's account lives on exactly one, e.g.
-    "zinfandel-api.centrastage.net") — there is no fixed default, unlike a
-    single-region vendor, so it must be supplied per tenant. Returns 401 if
-    any is missing on /mcp requests.
+    Reads X-Datto-Api-Key and X-Datto-Api-Secret (required) and the region from
+    X-Datto-Api-Url or X-Datto-Platform (optional, default concord), and stores
+    them in the contextvar. Only the presence of the key and secret is checked
+    here; an unknown platform is reported by the tools. Returns 401 if the key
+    or secret is missing on /mcp requests.
     """
 
     def __init__(self, app: ASGIApp, settings: Settings):
@@ -69,19 +88,18 @@ class GatewayTokenMiddleware:
         request = Request(scope)
         api_key = request.headers.get("x-datto-api-key")
         api_secret = request.headers.get("x-datto-api-secret")
-        api_url = request.headers.get("x-datto-api-url")
-        if not api_key or not api_secret or not api_url:
+        api_url = resolve_api_url(request.headers.get("x-datto-api-url"), request.headers.get("x-datto-platform"))
+        if not api_key or not api_secret:
             response = JSONResponse(
                 {
                     "error": "Missing credentials",
                     "message": (
-                        "This server requires the X-Datto-Api-Key header, the "
-                        "X-Datto-Api-Secret header, and the X-Datto-Api-Url header "
-                        "(the tenant's region-specific Datto RMM API host, e.g. "
-                        "zinfandel-api.centrastage.net)"
+                        "This server requires the X-Datto-Api-Key and X-Datto-Api-Secret "
+                        "headers. Set the region with X-Datto-Platform (concord, merlot, "
+                        "pinotage, syrah, vidal, zinfandel; default concord) or X-Datto-Api-Url."
                     ),
-                    "required_headers": ["X-Datto-Api-Key", "X-Datto-Api-Secret", "X-Datto-Api-Url"],
-                    "optional_headers": [],
+                    "required_headers": ["X-Datto-Api-Key", "X-Datto-Api-Secret"],
+                    "optional_headers": ["X-Datto-Platform", "X-Datto-Api-Url"],
                 },
                 status_code=401,
             )
@@ -119,6 +137,8 @@ def create_mcp_server(settings: Settings) -> FastMCP:
             "imply a result you cannot see."
         ),
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+        # No session state between requests: tools/list works without an initialize handshake.
+        stateless_http=True,
     )
 
     client_factory: Callable[[], DattoClient | None] = lambda: get_client_from_context(settings)
