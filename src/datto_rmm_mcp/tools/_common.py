@@ -1,3 +1,5 @@
+# Copyright 2026 MSPbots.ai
+# SPDX-License-Identifier: Apache-2.0
 from .._json import error_envelope
 
 NO_TOKEN = error_envelope(

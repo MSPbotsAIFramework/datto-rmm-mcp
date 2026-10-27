@@ -1,3 +1,5 @@
+# Copyright 2026 MSPbots.ai
+# SPDX-License-Identifier: Apache-2.0
 import asyncio
 from typing import Any
 
@@ -11,24 +13,15 @@ _MAX_RETRIES = 3
 _MAX_BACKOFF_SECONDS = 20.0
 
 # Datto RMM's OAuth2 password-grant client credentials are fixed, public
-# constants documented by Datto itself — not a per-tenant secret. The real
+# constants documented by Datto itself - not a per-tenant secret. The real
 # secret is the tenant's own API Key/Secret Key, sent as username/password.
 _OAUTH_CLIENT_ID = "public-client"
 _OAUTH_CLIENT_SECRET = "public"
 
-# One shared connection pool for the process lifetime. No credentials are
-# ever stored on it — the API key/secret/host are passed per-request (see
-# server.py's contextvar-based credential isolation), so sharing the pool
-# across tenants/requests is safe: it holds only TCP connections, never a
-# request's auth material.
-_http_client: httpx.AsyncClient | None = None
-
-
-def _get_http_client() -> httpx.AsyncClient:
-    global _http_client
-    if _http_client is None:
-        _http_client = httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True)
-    return _http_client
+# No shared HTTP client: an httpx.AsyncClient keeps a cookie jar, so one client
+# shared across tenants would send a Set-Cookie received for one tenant with the
+# next tenant's requests (PRD-21492). Every HTTP call opens its own client and
+# closes it, so nothing outlives the call.
 
 
 # status_code -> (error code, retryable). status_code 0 means a network/
@@ -64,7 +57,7 @@ class DattoError(Exception):
 
 
 def _normalize_base_url(api_url: str) -> str:
-    """Real tenant records store this inconsistently — sometimes a bare
+    """Real tenant records store this inconsistently - sometimes a bare
     host ("zinfandel-api.centrastage.net"), sometimes a full URL
     ("https://zinfandel-api.centrastage.net"). Normalize to a full https URL
     either way.
@@ -81,18 +74,29 @@ class DattoClient:
     Takes the tenant's raw API Key/Secret Key (and its region-specific API
     host) and does the OAuth2 password-grant exchange itself, once per
     client instance (memoized on self, never persisted beyond the lifetime
-    of the request this client was built for — see server.py's
+    of the request this client was built for - see server.py's
     contextvar-based credential isolation). The grant's client_id/secret
     are Datto's own fixed public constants; the tenant's API Key/Secret
     Key are sent as the grant's username/password, per Datto's documented
     auth flow.
     """
 
-    def __init__(self, api_key: str, api_secret: str, api_url: str):
+    def __init__(
+        self,
+        api_key: str,
+        api_secret: str,
+        api_url: str,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ):
         self._api_key = api_key
         self._api_secret = api_secret
         self._base_url = _normalize_base_url(api_url)
         self._token: str | None = None
+        self._transport = transport  # tests only
+
+    def _http(self) -> httpx.AsyncClient:
+        """A fresh client for one HTTP call; use it with ``async with`` so it is closed."""
+        return httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True, transport=self._transport)
 
     async def _ensure_token(self) -> str:
         if self._token is None:
@@ -100,18 +104,18 @@ class DattoClient:
         return self._token
 
     async def _exchange_token(self) -> str:
-        client = _get_http_client()
         try:
-            resp = await client.post(
-                f"{self._base_url}/auth/oauth/token",
-                auth=(_OAUTH_CLIENT_ID, _OAUTH_CLIENT_SECRET),
-                data={
-                    "grant_type": "password",
-                    "username": self._api_key,
-                    "password": self._api_secret,
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
+            async with self._http() as client:
+                resp = await client.post(
+                    f"{self._base_url}/auth/oauth/token",
+                    auth=(_OAUTH_CLIENT_ID, _OAUTH_CLIENT_SECRET),
+                    data={
+                        "grant_type": "password",
+                        "username": self._api_key,
+                        "password": self._api_secret,
+                    },
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
         except httpx.RequestError as e:
             raise DattoError(0, f"{e or type(e).__name__} (token exchange)") from e
 
@@ -149,11 +153,8 @@ class DattoClient:
     async def put(self, path: str, json_body: Any = None) -> Any:
         return await self._request("PUT", path, json_body=json_body)
 
-    async def _request(
-        self, method: str, path: str, params: dict | None = None, json_body: Any = None
-    ) -> Any:
+    async def _request(self, method: str, path: str, params: dict | None = None, json_body: Any = None) -> Any:
         token = await self._ensure_token()
-        client = _get_http_client()
         url = f"{self._base_url}{path}"
         params = self._clean_params(params)
 
@@ -164,9 +165,8 @@ class DattoClient:
         last_exc: Exception | None = None
         for attempt in range(_MAX_RETRIES + 1):
             try:
-                resp = await client.request(
-                    method, url, headers=headers, params=params, json=json_body
-                )
+                async with self._http() as client:
+                    resp = await client.request(method, url, headers=headers, params=params, json=json_body)
             except httpx.RequestError as e:
                 last_exc = e
                 if attempt < _MAX_RETRIES:

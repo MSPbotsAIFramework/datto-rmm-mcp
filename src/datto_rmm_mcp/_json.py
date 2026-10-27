@@ -1,3 +1,5 @@
+# Copyright 2026 MSPbots.ai
+# SPDX-License-Identifier: Apache-2.0
 """Compact, size-capped JSON for tool results and the shared error envelope.
 
 Capped at MAX_CHARS so one tool call can never flood the agent's context; a cut list says
@@ -148,8 +150,7 @@ def dump_json_capped(data: Any, max_chars: int = MAX_CHARS) -> str:
         {
             "truncated": True,
             "note": (
-                f"Result too large to return ({len(text)} chars); narrow the query "
-                "with filters or a smaller page size."
+                f"Result too large to return ({len(text)} chars); narrow the query with filters or a smaller page size."
             ),
         }
     )
@@ -158,9 +159,21 @@ def dump_json_capped(data: Any, max_chars: int = MAX_CHARS) -> str:
 # Fields that point to the next page. When records are cut they would skip them.
 _CONTINUATION_KEYS = frozenset(
     {
-        "next_page", "next_offset", "next_skip", "next_cursor", "next_page_token", "next_token",
-        "starting_after", "next", "next_link", "nextPageAfter", "next_start", "nextPage", "next_page_url",
-        "next_step", "next_content_offset",
+        "next_page",
+        "next_offset",
+        "next_skip",
+        "next_cursor",
+        "next_page_token",
+        "next_token",
+        "starting_after",
+        "next",
+        "next_link",
+        "nextPageAfter",
+        "next_start",
+        "nextPage",
+        "next_page_url",
+        "next_step",
+        "next_content_offset",
     }
 )
 _RESUME = "_resume"

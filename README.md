@@ -249,3 +249,8 @@ curl -X POST http://localhost:8080/mcp \
   `next_offset` on top of it; `max_results` is capped at 250. Query
   parameters and record fields follow Datto's published OpenAPI document
   (`https://concord-api.centrastage.net/api/v3/api-docs`).
+
+## License
+
+Copyright 2026 MSPbots.ai. Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE)
+and [NOTICE](NOTICE).

@@ -1,3 +1,5 @@
+# Copyright 2026 MSPbots.ai
+# SPDX-License-Identifier: Apache-2.0
 """Invalid tool arguments reported as the standard invalid_argument envelope."""
 
 from typing import Any

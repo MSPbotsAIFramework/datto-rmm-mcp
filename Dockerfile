@@ -22,7 +22,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY . .
 RUN uv sync --frozen --no-dev
 
-# Production stage — slim image, no uv, no build tools
+# Production stage - slim image, no uv, no build tools
 FROM python:3.12-slim AS production
 
 # Create non-root user for security
@@ -56,7 +56,7 @@ CMD ["python", "-m", "datto_rmm_mcp"]
 
 # OCI image labels
 LABEL org.opencontainers.image.title="datto-rmm-mcp"
-LABEL org.opencontainers.image.description="Datto RMM MCP server — device inventory, component discovery, quick-job execution, and job status as MCP tools"
+LABEL org.opencontainers.image.description="Datto RMM MCP server - device inventory, component discovery, quick-job execution, and job status as MCP tools"
 LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 LABEL org.opencontainers.image.revision="${COMMIT_SHA}"

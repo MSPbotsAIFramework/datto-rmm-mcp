@@ -1,3 +1,5 @@
+# Copyright 2026 MSPbots.ai
+# SPDX-License-Identifier: Apache-2.0
 """Gateway credential middleware tests: missing-header 401, and header
 values correctly reaching the per-request contextvar (no global-state
 leakage across requests).
@@ -94,7 +96,7 @@ def test_header_present_reaches_request_context(monkeypatch):
 
     asyncio.run(run())
     assert seen["creds"] == ("test-key-123", "test-secret-456", "zinfandel-api.centrastage.net")
-    # After the request completes, the contextvar must be reset — a fresh
+    # After the request completes, the contextvar must be reset - a fresh
     # get() outside any request context sees no leftover credential.
     assert _gateway_creds_var.get() is None
 

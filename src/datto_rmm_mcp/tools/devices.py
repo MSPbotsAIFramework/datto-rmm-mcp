@@ -1,4 +1,6 @@
-"""Device inventory — read only.
+# Copyright 2026 MSPbots.ai
+# SPDX-License-Identifier: Apache-2.0
+"""Device inventory - read only.
 
 Endpoint verified live against real tenant accounts (not just the handover
 doc): GET /api/v2/account/devices returns real device records.
@@ -63,7 +65,9 @@ def register(mcp: FastMCP, client_factory: Callable[[], DattoClient | None]) -> 
         ] = None,
         offset: Annotated[
             int | None,
-            Field(description="Device position to start from (0-based). Pass next_offset from the previous result.", ge=0),
+            Field(
+                description="Device position to start from (0-based). Pass next_offset from the previous result.", ge=0
+            ),
         ] = None,
         hostname: Annotated[str | None, Field(description=Like.format("hostname"))] = None,
         site_name: Annotated[str | None, Field(description=Like.format("site name"))] = None,

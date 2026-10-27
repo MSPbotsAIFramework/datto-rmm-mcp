@@ -1,6 +1,9 @@
+# Copyright 2026 MSPbots.ai
+# SPDX-License-Identifier: Apache-2.0
 """Cut device / component pages continue exactly by offset (PRD-21480, PRD-21481),
 and bad arguments come back as the invalid_argument envelope."""
 
+import functools
 import json
 
 import httpx
@@ -42,7 +45,10 @@ class FakeDatto:
     """Datto API v2 paging: page N (0-based) starts at N * max; pageDetails like the real one."""
 
     def __init__(self, devices, components):
-        self.data = {"/api/v2/account/devices": ("devices", devices), "/api/v2/account/components": ("components", components)}
+        self.data = {
+            "/api/v2/account/devices": ("devices", devices),
+            "/api/v2/account/components": ("components", components),
+        }
         self.requests: list[httpx.Request] = []
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -65,7 +71,9 @@ class FakeDatto:
 @pytest.fixture
 def fake(monkeypatch):
     fake = FakeDatto([device(i) for i in range(130)], [component(i) for i in range(260)])
-    monkeypatch.setattr(api_client, "_http_client", httpx.AsyncClient(transport=httpx.MockTransport(fake)))
+    monkeypatch.setattr(
+        server, "DattoClient", functools.partial(api_client.DattoClient, transport=httpx.MockTransport(fake))
+    )
     token = server._gateway_creds_var.set(server._GatewayCreds("key", "secret", BASE))
     yield fake
     server._gateway_creds_var.reset(token)

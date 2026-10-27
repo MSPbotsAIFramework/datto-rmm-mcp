@@ -1,5 +1,6 @@
+# Copyright 2026 MSPbots.ai
+# SPDX-License-Identifier: Apache-2.0
 import contextvars
-from collections.abc import Callable
 from typing import NamedTuple
 
 from mcp.server.fastmcp import FastMCP
@@ -22,12 +23,12 @@ class _GatewayCreds(NamedTuple):
 # Per-request credential isolation via contextvars.
 # GatewayTokenMiddleware sets this before the MCP handler runs.
 # Python asyncio copies context per task, so concurrent SSE connections are isolated.
-# Datto RMM has no shared/brokerable OAuth layer to delegate to a gateway —
+# Datto RMM has no shared/brokerable OAuth layer to delegate to a gateway -
 # the tenant's own API Key/Secret Key *are* the credential (the OAuth2
 # password-grant client_id/secret are Datto's fixed public constants, not a
 # secret worth guarding at a gateway). So this server does its own token
 # exchange per request (see api_client.DattoClient), same as most vendor-mcp
-# services in this fleet — it never caches a token beyond one request.
+# services in this fleet - it never caches a token beyond one request.
 # Datto RMM platform name -> regional API host. The platform's credential form asks for the
 # platform name (X-Datto-Platform, default "concord"); X-Datto-Api-Url still wins when sent.
 PLATFORM_URLS = {
@@ -124,17 +125,17 @@ def create_mcp_server(settings: Settings) -> FastMCP:
         instructions=(
             "Datto RMM is an RMM (remote monitoring and management) platform MSPs "
             "use to manage on-prem device fleets. This server exposes device "
-            "inventory, the component (script) library, and Quick Job execution — "
+            "inventory, the component (script) library, and Quick Job execution - "
             "the mechanism for running a component on a device right now. Typical "
             "flow: dattormm_get_devices to find a device_uid (pass hostname); "
             "dattormm_get_components to find a component_uid (pass name); "
-            "dattormm_run_component to trigger it (destructive, irreversible — "
+            "dattormm_run_component to trigger it (destructive, irreversible - "
             "requires confirm=true); dattormm_get_job_status to check whether it "
             "finished. IMPORTANT KNOWN LIMITATION, confirmed against Datto's own "
             "current API documentation: there is no way to retrieve a job's "
-            "success/failure, exit code, or stdout/stderr through this API — "
+            "success/failure, exit code, or stdout/stderr through this API - "
             "dattormm_get_job_status can only confirm the job reached a terminal "
-            "state (\"completed\"), never whether it succeeded. Do not claim or "
+            'state ("completed"), never whether it succeeded. Do not claim or '
             "imply a result you cannot see."
         ),
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
@@ -142,7 +143,8 @@ def create_mcp_server(settings: Settings) -> FastMCP:
         stateless_http=True,
     )
 
-    client_factory: Callable[[], DattoClient | None] = lambda: get_client_from_context(settings)
+    def client_factory() -> DattoClient | None:
+        return get_client_from_context(settings)
 
     from .tools import components, devices, jobs
 

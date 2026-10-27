@@ -1,4 +1,6 @@
-"""Component (script/tool) library — read only.
+# Copyright 2026 MSPbots.ai
+# SPDX-License-Identifier: Apache-2.0
+"""Component (script/tool) library - read only.
 
 Endpoint verified live: GET /api/v2/account/components returned 250 real
 components (e.g. "Change user password [WIN]", "Disk Cleanup [WIN]") in
@@ -47,7 +49,7 @@ def register(mcp: FastMCP, client_factory: Callable[[], DattoClient | None]) -> 
     ) -> str:
         """List the components (scripts/tools) this tenant can run on a device.
 
-        Call this BEFORE dattormm_run_component — you need a real
+        Call this BEFORE dattormm_run_component - you need a real
         component_uid from here, guessing one is not possible. Pass name to
         find a component (e.g. "Disk Cleanup", "password"); each entry has a
         uid, name, description and the variables it takes. When has_more is

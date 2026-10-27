@@ -1,3 +1,5 @@
+# Copyright 2026 MSPbots.ai
+# SPDX-License-Identifier: Apache-2.0
 """tools/list snapshot + error-envelope mapping tests.
 
 No network calls: tool enumeration goes through FastMCP's in-process
@@ -32,7 +34,7 @@ async def test_tools_list_snapshot():
 
     by_name = {t.name: t for t in tools}
     # dattormm_run_component is the sole exception to the SOP's 500-char
-    # description guideline (§2.2, a "should" not a hard rule): it's a
+    # description guideline (section 2.2, a "should" not a hard rule): it's a
     # destructive, irreversible action against real customer production
     # devices, and the known-limitation warning (no way to see success/
     # failure afterward) is load-bearing safety information, not decorative.
@@ -48,9 +50,7 @@ async def test_tools_list_snapshot():
         first_line = description.strip().splitlines()[0] if description.strip() else ""
         assert len(first_line) <= 100, f"{name}: first line too long: {first_line!r}"
         assert "API:" not in description, f"{name}: leaked implementation detail"
-        assert "GET /" not in description and "PUT /" not in description, (
-            f"{name}: leaked implementation detail"
-        )
+        assert "GET /" not in description and "PUT /" not in description, f"{name}: leaked implementation detail"
 
         annotations = tool.annotations
         actual_hints = set()
@@ -99,7 +99,7 @@ def test_error_envelope_mapping(status_code, expected_code, expected_retryable):
     ],
 )
 def test_normalize_base_url_handles_real_data_inconsistency(raw, expected):
-    # Real tenant_integration records store this field inconsistently — some
+    # Real tenant_integration records store this field inconsistently - some
     # rows have a bare host, some a full URL, with or without a trailing
     # slash (confirmed by direct inspection of production data).
     assert _normalize_base_url(raw) == expected
