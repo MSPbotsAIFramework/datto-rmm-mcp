@@ -8,6 +8,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from ._arguments import EnvelopeFastMCP
 from .api_client import DattoClient
 from .config import Settings
 
@@ -118,15 +119,15 @@ def create_mcp_server(settings: Settings) -> FastMCP:
     # DNS-rebinding protection is a browser-oriented safeguard that rejects
     # non-localhost Host headers with 421. Disable it so the server works
     # correctly behind a reverse proxy or docker network.
-    mcp = FastMCP(
+    mcp = EnvelopeFastMCP(
         name="datto-rmm-mcp",
         instructions=(
             "Datto RMM is an RMM (remote monitoring and management) platform MSPs "
             "use to manage on-prem device fleets. This server exposes device "
             "inventory, the component (script) library, and Quick Job execution — "
             "the mechanism for running a component on a device right now. Typical "
-            "flow: dattormm_get_devices to find a device_uid; "
-            "dattormm_get_components to find a component_uid (what to run); "
+            "flow: dattormm_get_devices to find a device_uid (pass hostname); "
+            "dattormm_get_components to find a component_uid (pass name); "
             "dattormm_run_component to trigger it (destructive, irreversible — "
             "requires confirm=true); dattormm_get_job_status to check whether it "
             "finished. IMPORTANT KNOWN LIMITATION, confirmed against Datto's own "

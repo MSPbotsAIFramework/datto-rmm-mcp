@@ -98,12 +98,14 @@ Authorization requires the `X-Datto-Api-Key` and `X-Datto-Api-Secret` request he
 
 | Tool | Description | Parameters |
 |---|---|---|
-| `dattormm_get_devices` | List all devices under the tenant's Datto RMM account | `page` (optional), `max_results` (optional) |
-| `dattormm_get_components` | List the runnable components/script library | None |
+| `dattormm_get_devices` | List the devices under the tenant's Datto RMM account, compact by default | `offset`, `max_results` (default 50, max 250), `page`, `hostname`, `site_name`, `device_type`, `operating_system`, `full_response` (all optional) |
+| `dattormm_get_components` | List the runnable components/script library, with their variables | `name`, `offset`, `max_results`, `page` (all optional) |
 | `dattormm_run_component` | Run the specified component on the specified device immediately (Datto's "Quick Job"), **destructive and irreversible** | `device_uid` (required), `component_uid` (required), `variables` (optional), `confirm` (required, must be true) |
 | `dattormm_get_job_status` | Check whether a job has reached a terminal state | `job_uid` (required) |
 
 > **`dattormm_get_job_status` can only confirm whether the job is "completed", not whether it succeeded**; see Known Gaps.
+
+List results are `{"items", "count", "limit", "offset", "has_more"}` (plus `total_count`). When `has_more` is true, `next_offset` is where to continue: it starts right after the last record returned, also when a page was cut to fit the 20,000-character limit, so following it never skips a record. A call can return fewer than `limit` records while more remain. A full Datto device record is about 5,000 characters, so devices come back with the main fields (uid, hostname, site, OS, online state, last seen, IPs, antivirus, patch status) unless `full_response` is true. `hostname`, `site_name`, `device_type` and `operating_system` are partial matches done by Datto; the component `name` filter is applied here, scanning up to 1,000 components per call. Invalid arguments (negative `page` / `offset`, `max_results` outside 1-250, a missing required argument) return the `invalid_argument` envelope without calling Datto.
 
 ## Quick Start
 
@@ -242,7 +244,8 @@ curl -X POST http://localhost:8080/mcp \
   claim/unclaim, site management, alert management, and anything else in
   Datto's API are out of scope for this MCP; PRD-16562 only asked for
   deployment/execution + inventory.
-- **Pagination parameters (`page`, `max`) are passed through, not
-  independently verified beyond a `max=2` smoke test** — the exact upper
-  bound Datto enforces, and whether `page` is 0- or 1-indexed, weren't
-  confirmed field-by-field.
+- **Pagination**: Datto's `page` is 0-based and page N starts at
+  N * `max` (confirmed by QA on INT, PRD-21480). Tools expose `offset` /
+  `next_offset` on top of it; `max_results` is capped at 250. Query
+  parameters and record fields follow Datto's published OpenAPI document
+  (`https://concord-api.centrastage.net/api/v3/api-docs`).
