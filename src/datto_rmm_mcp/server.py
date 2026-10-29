@@ -133,14 +133,18 @@ def create_mcp_server(settings: Settings) -> FastMCP:
         instructions=(
             "Datto RMM is an RMM (remote monitoring and management) platform MSPs "
             "use to manage on-prem device fleets. This server exposes device "
-            "inventory, the component (script) library, and Quick Job execution - "
-            "the mechanism for running a component on a device right now. Typical "
-            "flow: dattormm_get_devices to find a device_uid (pass hostname); "
-            "dattormm_get_components to find a component_uid (pass name); "
-            "dattormm_run_component to trigger it (destructive, irreversible - "
-            "requires confirm=true); dattormm_get_job_status to check whether it "
-            "finished. IMPORTANT KNOWN LIMITATION, confirmed against Datto's own "
-            "current API documentation: there is no way to retrieve a job's "
+            "inventory, the component (script) library, Quick Job execution - "
+            "the mechanism for running a component on a device right now - and "
+            "alert visibility/resolution. Typical flow: dattormm_get_devices to "
+            "find a device_uid (pass hostname); dattormm_get_components to find "
+            "a component_uid (pass name); dattormm_run_component to trigger it "
+            "(destructive, irreversible - requires confirm=true); "
+            "dattormm_get_job_status to check whether it finished; "
+            "dattormm_get_alerts to see what's alerting (account-, device- or "
+            "site-scoped); dattormm_resolve_alert to clear one (destructive, "
+            "irreversible - requires confirm=true, no unresolve/reopen exists "
+            "in this API). IMPORTANT KNOWN LIMITATION, confirmed against Datto's "
+            "own current API documentation: there is no way to retrieve a job's "
             "success/failure, exit code, or stdout/stderr through this API - "
             "dattormm_get_job_status can only confirm the job reached a terminal "
             'state ("completed"), never whether it succeeded. Do not claim or '
@@ -154,10 +158,11 @@ def create_mcp_server(settings: Settings) -> FastMCP:
     def client_factory() -> DattoClient | None:
         return get_client_from_context(settings)
 
-    from .tools import components, devices, jobs
+    from .tools import alerts, components, devices, jobs
 
     devices.register(mcp, client_factory)
     components.register(mcp, client_factory)
     jobs.register(mcp, client_factory)
+    alerts.register(mcp, client_factory)
 
     return mcp

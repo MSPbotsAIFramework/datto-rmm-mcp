@@ -22,6 +22,8 @@ EXPECTED_TOOLS = {
     "dattormm_get_components": (set(), {"readOnlyHint"}),
     "dattormm_run_component": ({"device_uid", "component_uid"}, {"destructiveHint"}),
     "dattormm_get_job_status": ({"job_uid"}, {"readOnlyHint"}),
+    "dattormm_get_alerts": (set(), {"readOnlyHint"}),
+    "dattormm_resolve_alert": ({"alert_uid"}, {"destructiveHint"}),
 }
 
 

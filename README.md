@@ -1,7 +1,8 @@
 # datto-rmm-mcp
 
 MCP server for **Datto RMM** — device inventory, the component (script) library,
-and Quick Job execution (run a component on a device right now), over the
+Quick Job execution (run a component on a device right now), and alert
+visibility/resolution, over the
 [Model Context Protocol](https://modelcontextprotocol.io/) (Streamable HTTP/SSE
 transport).
 
@@ -91,6 +92,9 @@ Links: [connect.mspbots.ai](https://connect.mspbots.ai) · [mspbots.ai](https://
   (⚠️ destructive, irreversible — see Known Gaps for what you can and can't
   confirm afterward)
 - "Did that job finish?" → `dattormm_get_job_status`
+- "What's alerting right now?" / narrow to one device or site → `dattormm_get_alerts`
+- "Resolve alert [id], I've fixed it" → `dattormm_resolve_alert`
+  (⚠️ destructive, irreversible — Datto has no unresolve/reopen action)
 
 ## Tools
 
@@ -102,6 +106,8 @@ Authorization requires the `X-Datto-Api-Key` and `X-Datto-Api-Secret` request he
 | `dattormm_get_components` | List the runnable components/script library, with their variables | `name`, `offset`, `max_results`, `page` (all optional) |
 | `dattormm_run_component` | Run the specified component on the specified device immediately (Datto's "Quick Job"), **destructive and irreversible** | `device_uid` (required), `component_uid` (required), `variables` (optional), `confirm` (required, must be true) |
 | `dattormm_get_job_status` | Check whether a job has reached a terminal state | `job_uid` (required) |
+| `dattormm_get_alerts` | List alerts — account-wide, or narrowed to one device or site | `status` (`open` default or `resolved`), `device_uid`, `site_uid` (mutually exclusive), `muted`, `offset`, `max_results`, `page` (all optional) |
+| `dattormm_resolve_alert` | Resolve the specified alert, **destructive and irreversible** (no unresolve/reopen exists in Datto's API) | `alert_uid` (required), `confirm` (required, must be true) |
 
 > **`dattormm_get_job_status` can only confirm whether the job is "completed", not whether it succeeded**; see Known Gaps.
 
@@ -240,10 +246,26 @@ curl -X POST http://localhost:8080/mcp \
 - **componentUid discovery**: `dattormm_get_components` is the intended way
   to find one (confirmed working), even though Datto's own docs say to copy
   it from the UI manually — the API path works in practice, use it.
-- **No write/admin endpoints beyond quickjob are wrapped**: device
-  claim/unclaim, site management, alert management, and anything else in
-  Datto's API are out of scope for this MCP; PRD-16562 only asked for
-  deployment/execution + inventory.
+- **No write/admin endpoints beyond quickjob and alert resolution are
+  wrapped**: device claim/unclaim, site management, and anything else in
+  Datto's API are out of scope for this MCP.
+- **Alert endpoints (`dattormm_get_alerts`, `dattormm_resolve_alert`,
+  PRD-21198) are desk-verified from Datto's published API documentation, not
+  field-verified** — no Datto trial/sandbox account was available in this
+  environment, the same constraint `dattormm_run_component` already
+  documents above:
+  - The account/device/site-scoped list endpoints are assumed to share the
+    same `pageDetails`/paging contract as devices/components; this has not
+    been confirmed against a real tenant's response. `fetch_page`'s generic
+    handling tolerates a differently-shaped `pageDetails` without crashing,
+    but `has_more`/`next_offset` could be wrong if the real shape differs.
+  - `dattormm_resolve_alert`'s actual response shape, and what resolving an
+    already-resolved alert does, are both undocumented by Datto and
+    unverified. The tool passes Datto's response straight through either
+    way. **Test both for real before fully trusting them.**
+  - Mute/unmute are not wrapped: Datto removed that capability from its own
+    API in release 8.9.0, so there is no "unresolve" or "reopen" path
+    through this API at all.
 - **Pagination**: Datto's `page` is 0-based and page N starts at
   N * `max` (confirmed by QA on INT, PRD-21480). Tools expose `offset` /
   `next_offset` on top of it; `max_results` is capped at 250. Query

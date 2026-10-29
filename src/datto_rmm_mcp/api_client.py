@@ -153,6 +153,9 @@ class DattoClient:
     async def put(self, path: str, json_body: Any = None) -> Any:
         return await self._request("PUT", path, json_body=json_body)
 
+    async def post(self, path: str, json_body: Any = None) -> Any:
+        return await self._request("POST", path, json_body=json_body)
+
     async def _request(self, method: str, path: str, params: dict | None = None, json_body: Any = None) -> Any:
         token = await self._ensure_token()
         url = f"{self._base_url}{path}"
