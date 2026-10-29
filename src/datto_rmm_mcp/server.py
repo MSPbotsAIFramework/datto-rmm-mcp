@@ -1,5 +1,13 @@
 # Copyright 2026 MSPbots.ai
 # SPDX-License-Identifier: Apache-2.0
+# Postponed annotation evaluation (PRD-21198): without this, `client_factory`'s
+# `-> DattoClient | None` return annotation is evaluated eagerly against this
+# module's own `DattoClient` name every time create_mcp_server() runs; tests
+# that monkeypatch `server.DattoClient` to a functools.partial (test_paging.py,
+# test_isolation.py) then hit `TypeError: unsupported operand type(s) for |:
+# 'functools.partial' and 'NoneType'` before the test body itself ever executes.
+from __future__ import annotations
+
 import contextvars
 from typing import NamedTuple
 
