@@ -115,6 +115,27 @@ def test_region_resolution():
     assert resolve_api_url("", "probe-placeholder") == ""
 
 
+def test_alerts_tools_require_datto_credentials():
+    # TC-DATTO-010 (AC10): the new alerts tools go through the same
+    # middleware/401 path as every existing tool - no separate credential
+    # handling was introduced for them.
+    app, _ = _make_app()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "dattormm_get_alerts", "arguments": {}},
+            },
+            headers={"Accept": "application/json, text/event-stream"},
+        )
+        assert resp.status_code == 401
+        body = resp.json()
+        assert body["required_headers"] == ["X-Datto-Api-Key", "X-Datto-Api-Secret"]
+
+
 def test_placeholder_headers_still_list_tools():
     app, _ = _make_app()
     with TestClient(app) as client:

@@ -32,7 +32,8 @@ class CookieDatto:
         if request.url.path == "/auth/oauth/token":
             token = "token-a" if tag == "tenant-a" else "token-b"
             return httpx.Response(200, json={"access_token": token}, headers=cookie)
-        return httpx.Response(200, json={"pageDetails": {"totalCount": 0}, "devices": []}, headers=cookie)
+        key = "alerts" if "/alerts/" in request.url.path else "devices"
+        return httpx.Response(200, json={"pageDetails": {"totalCount": 0}, key: []}, headers=cookie)
 
 
 @pytest.mark.asyncio
@@ -53,6 +54,29 @@ async def test_a_cookie_set_for_one_tenant_is_not_sent_for_another(monkeypatch):
         assert "error" not in json.loads(blocks[0].text)
 
     assert len(fake.requests) == 4  # token + devices, for each tenant
+    for request in fake.requests:
+        assert "cookie" not in request.headers, (request.url.path, request.headers.get("cookie"))
+
+
+@pytest.mark.asyncio
+async def test_alerts_tenant_isolation_matches_devices(monkeypatch):
+    # TC-DATTO-011 (AC11): same guarantee as devices, exercised through the
+    # new dattormm_get_alerts tool instead of dattormm_get_devices.
+    fake = CookieDatto()
+    transport = httpx.MockTransport(fake)
+    monkeypatch.setattr(server, "DattoClient", functools.partial(api_client.DattoClient, transport=transport))
+    mcp = server.create_mcp_server(Settings())
+
+    for key in ("key-a", "key-b"):
+        token = server._gateway_creds_var.set(server._GatewayCreds(key, "secret", BASE))
+        try:
+            result = await mcp.call_tool("dattormm_get_alerts", {})
+        finally:
+            server._gateway_creds_var.reset(token)
+        blocks = result[0] if isinstance(result, tuple) else result
+        assert "error" not in json.loads(blocks[0].text)
+
+    assert len(fake.requests) == 4  # token + alerts, for each tenant
     for request in fake.requests:
         assert "cookie" not in request.headers, (request.url.path, request.headers.get("cookie"))
 

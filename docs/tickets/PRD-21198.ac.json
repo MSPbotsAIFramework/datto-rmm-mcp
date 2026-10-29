@@ -1,0 +1,176 @@
+[
+  {
+    "id": "TC-DATTO-001",
+    "ac": "AC1",
+    "text": "Given valid Datto credentials, When dattormm_get_alerts is called with no device_uid/site_uid/status, Then it calls GET /api/v2/account/alerts/open and returns {items,count,limit,offset,has_more[,next_offset,total_count]}",
+    "type": "auto",
+    "source": "design",
+    "tests": [
+      "tests/test_alerts.py::test_get_alerts_default_status_is_open_account_wide"
+    ],
+    "result": "pass",
+    "evidence": "pytest tests/test_alerts.py::test_get_alerts_default_status_is_open_account_wide PASSED. Asserts request path == /api/v2/account/alerts/open and envelope has {items,count,limit,offset,has_more}."
+  },
+  {
+    "id": "TC-DATTO-002",
+    "ac": "AC2",
+    "text": "Given status=\"resolved\", When dattormm_get_alerts is called, Then it calls GET /api/v2/account/alerts/resolved instead of /open",
+    "type": "auto",
+    "source": "design",
+    "tests": [
+      "tests/test_alerts.py::test_get_alerts_status_resolved"
+    ],
+    "result": "pass",
+    "evidence": "pytest tests/test_alerts.py::test_get_alerts_status_resolved PASSED. Asserts request path == /api/v2/account/alerts/resolved."
+  },
+  {
+    "id": "TC-DATTO-003",
+    "ac": "AC3",
+    "text": "Given a device_uid, When dattormm_get_alerts is called, Then it calls GET /api/v2/device/{device_uid}/alerts/{status} and only that device's alerts are returned",
+    "type": "auto",
+    "source": "design",
+    "tests": [
+      "tests/test_alerts.py::test_get_alerts_scoped_to_device_uid"
+    ],
+    "result": "pass",
+    "evidence": "pytest tests/test_alerts.py::test_get_alerts_scoped_to_device_uid PASSED. Asserts request path == /api/v2/device/dev-1/alerts/open and only that device's fake alert is returned."
+  },
+  {
+    "id": "TC-DATTO-004",
+    "ac": "AC4",
+    "text": "Given a site_uid, When dattormm_get_alerts is called, Then it calls GET /api/v2/site/{site_uid}/alerts/{status} and only that site's alerts are returned",
+    "type": "auto",
+    "source": "design",
+    "tests": [
+      "tests/test_alerts.py::test_get_alerts_scoped_to_site_uid"
+    ],
+    "result": "pass",
+    "evidence": "pytest tests/test_alerts.py::test_get_alerts_scoped_to_site_uid PASSED. Asserts request path == /api/v2/site/site-1/alerts/open and only that site's fake alert is returned."
+  },
+  {
+    "id": "TC-DATTO-005",
+    "ac": "AC5",
+    "text": "Given both device_uid and site_uid are passed, When dattormm_get_alerts is called, Then it returns the invalid_argument envelope and no HTTP request is made",
+    "type": "auto",
+    "source": "design",
+    "tests": [
+      "tests/test_alerts.py::test_get_alerts_rejects_device_and_site_uid_together"
+    ],
+    "result": "pass",
+    "evidence": "pytest tests/test_alerts.py::test_get_alerts_rejects_device_and_site_uid_together PASSED. Asserts error.code == invalid_argument and zero HTTP requests were made."
+  },
+  {
+    "id": "TC-DATTO-006",
+    "ac": "AC6",
+    "text": "Given a page cut short by the 20,000-char response cap, When the next call passes offset=next_offset, Then no alert is skipped or repeated across the two calls",
+    "type": "auto",
+    "source": "design",
+    "tests": [
+      "tests/test_paging.py::test_alerts_resume_continues_exactly_by_offset"
+    ],
+    "result": "pass",
+    "evidence": "pytest tests/test_paging.py::test_alerts_resume_continues_exactly_by_offset PASSED. Walks 90 fake alerts at max_results=7 via next_offset and asserts every alertUid is returned exactly once, in order."
+  },
+  {
+    "id": "TC-DATTO-007",
+    "ac": "AC7",
+    "text": "Given a valid alert_uid and confirm=true, When dattormm_resolve_alert is called, Then it calls POST /api/v2/alert/{alert_uid}/resolve and returns Datto's response",
+    "type": "auto",
+    "source": "design",
+    "tests": [
+      "tests/test_alerts.py::test_resolve_alert_with_confirm_calls_resolve_endpoint"
+    ],
+    "result": "pass",
+    "evidence": "pytest tests/test_alerts.py::test_resolve_alert_with_confirm_calls_resolve_endpoint PASSED. Asserts POST /api/v2/alert/alert-1/resolve was called and Datto's JSON response is returned verbatim."
+  },
+  {
+    "id": "TC-DATTO-008",
+    "ac": "AC8",
+    "text": "Given confirm is omitted or false, When dattormm_resolve_alert is called, Then it returns the invalid_argument envelope and never calls Datto's resolve endpoint",
+    "type": "auto",
+    "source": "design",
+    "tests": [
+      "tests/test_alerts.py::test_resolve_alert_without_confirm_is_rejected"
+    ],
+    "result": "pass",
+    "evidence": "pytest tests/test_alerts.py::test_resolve_alert_without_confirm_is_rejected[args0,args1] PASSED (confirm omitted and confirm=False). Asserts error.code == invalid_argument and zero HTTP requests were made."
+  },
+  {
+    "id": "TC-DATTO-009",
+    "ac": "AC9",
+    "text": "Given an alert_uid that Datto returns 404 for (unknown or belonging to another tenant), When dattormm_resolve_alert is called, Then it returns the not_found envelope",
+    "type": "auto",
+    "source": "design",
+    "tests": [
+      "tests/test_alerts.py::test_resolve_alert_not_found_maps_to_not_found_envelope"
+    ],
+    "result": "pass",
+    "evidence": "pytest tests/test_alerts.py::test_resolve_alert_not_found_maps_to_not_found_envelope PASSED. Fake transport returns 404 for alert_uid=unknown; asserts error.code == not_found, retryable == false."
+  },
+  {
+    "id": "TC-DATTO-010",
+    "ac": "AC10",
+    "text": "Given missing or invalid Datto credentials, When dattormm_get_alerts or dattormm_resolve_alert is called, Then it returns the same NO_TOKEN/401 behavior the existing tools already give, with no separate code path",
+    "type": "auto",
+    "source": "design",
+    "tests": [
+      "tests/test_middleware.py::test_alerts_tools_require_datto_credentials"
+    ],
+    "result": "pass",
+    "evidence": "pytest tests/test_middleware.py::test_alerts_tools_require_datto_credentials PASSED. POSTs tools/call for dattormm_get_alerts with no credential headers via the real Starlette app; asserts 401 with the same required_headers list every other tool gets."
+  },
+  {
+    "id": "TC-DATTO-011",
+    "ac": "AC11",
+    "text": "Given two tenants' credentials used concurrently (the existing CookieDatto fixture), When each calls dattormm_get_alerts, Then neither tenant's request carries a cookie or token set for the other",
+    "type": "auto",
+    "source": "design",
+    "tests": [
+      "tests/test_isolation.py::test_alerts_tenant_isolation_matches_devices"
+    ],
+    "result": "pass",
+    "evidence": "pytest tests/test_isolation.py::test_alerts_tenant_isolation_matches_devices PASSED. Reuses the existing CookieDatto two-tenant fixture against dattormm_get_alerts; asserts no request carries a cookie set for the other tenant."
+  },
+  {
+    "id": "TC-DATTO-012",
+    "ac": "AC12",
+    "text": "Given tools/list is requested, Then dattormm_get_alerts (readOnlyHint) and dattormm_resolve_alert (destructiveHint, alert_uid required, confirm optional) are both reported with the documented schema",
+    "type": "auto",
+    "source": "design",
+    "tests": [
+      "tests/test_tools.py::test_tools_list_snapshot"
+    ],
+    "result": "pass",
+    "evidence": "pytest tests/test_tools.py::test_tools_list_snapshot PASSED. Live tools/list also checked manually: `uv run python -m datto_rmm_mcp` + curl tools/list returned 6 tools incl. dattormm_get_alerts (required=[], readOnlyHint) and dattormm_resolve_alert (required=[alert_uid], destructiveHint), matching AC12 exactly."
+  },
+  {
+    "id": "TC-DATTO-013",
+    "ac": "AC1",
+    "text": "Field verification: GET /api/v2/account/alerts/open against a real Datto RMM tenant returns the documented paging envelope and alert record shape (alertUid, timestamp, alertContext)",
+    "type": "manual",
+    "source": "design",
+    "steps": [
+      "Obtain a real Datto RMM tenant's API Key/Secret (trial/sandbox or explicit customer-consented account)",
+      "Call dattormm_get_alerts with those credentials via the deployed server",
+      "Compare the raw response against the documented shape (pageDetails/items keys, alertUid/timestamp/alertContext fields)"
+    ],
+    "expect": "Response matches the documented shape closely enough for fetch_page's generic pageDetails/nextPageUrl handling to compute has_more/next_offset correctly; any mismatch is filed as a follow-up, not silently absorbed",
+    "result": "untested",
+    "evidence": "No Datto RMM test account is available in this environment; not a blocker per references/mcp-track.md §2.5 (missing vendor test account does not block design or dev)"
+  },
+  {
+    "id": "TC-DATTO-014",
+    "ac": "AC7",
+    "text": "Field verification: POST /api/v2/alert/{alertUid}/resolve against a real open alert on a real Datto RMM tenant actually resolves it and returns a response this tool can pass through sensibly",
+    "type": "manual",
+    "source": "design",
+    "steps": [
+      "Obtain a real Datto RMM tenant with at least one real open alert",
+      "Call dattormm_resolve_alert(alert_uid=<real uid>, confirm=true)",
+      "Check the alert's state in Datto afterward (e.g. via dattormm_get_alerts status=resolved) and record the exact response shape returned by the resolve call"
+    ],
+    "expect": "The alert moves from the open list to the resolved list; the resolve call's response is recorded for comparison against this design's assumption (passthrough, no documented response schema)",
+    "result": "untested",
+    "evidence": "No Datto RMM test account is available in this environment; not a blocker per references/mcp-track.md §2.5"
+  }
+]

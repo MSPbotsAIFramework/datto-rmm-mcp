@@ -41,13 +41,24 @@ def component(i):
     }
 
 
+def alert(i):
+    # ~5,000 characters, like a real Datto alert record (dynamic alertContext).
+    return {
+        "alertUid": f"alert-{i:04d}",
+        "timestamp": "2026-10-27T00:00:00Z",
+        "alertContext": {"@class": "device-alert", "detail": "x" * 100},
+        **{f"extra_{k}": "x" * 100 for k in range(48)},
+    }
+
+
 class FakeDatto:
     """Datto API v2 paging: page N (0-based) starts at N * max; pageDetails like the real one."""
 
-    def __init__(self, devices, components):
+    def __init__(self, devices, components, alerts=None):
         self.data = {
             "/api/v2/account/devices": ("devices", devices),
             "/api/v2/account/components": ("components", components),
+            "/api/v2/account/alerts/open": ("alerts", alerts or []),
         }
         self.requests: list[httpx.Request] = []
 
@@ -70,7 +81,7 @@ class FakeDatto:
 
 @pytest.fixture
 def fake(monkeypatch):
-    fake = FakeDatto([device(i) for i in range(130)], [component(i) for i in range(260)])
+    fake = FakeDatto([device(i) for i in range(130)], [component(i) for i in range(260)], [alert(i) for i in range(90)])
     monkeypatch.setattr(
         server, "DattoClient", functools.partial(api_client.DattoClient, transport=httpx.MockTransport(fake))
     )
@@ -91,13 +102,13 @@ def call():
     return _call
 
 
-async def walk(call, tool, args):
+async def walk(call, tool, args, id_key="uid"):
     ids, calls, start = [], 0, {}
     while True:
         out = await call(tool, **args, **start)
         calls += 1
         assert len(json.dumps(out)) <= CAP + 500 and "retry_page_size" not in out
-        ids += [r["uid"] for r in out["items"]]
+        ids += [r[id_key] for r in out["items"]]
         if not out.get("has_more"):
             assert "next_offset" not in out
             return ids, calls
@@ -161,6 +172,14 @@ async def test_bad_paging_arguments_are_invalid_argument_and_never_reach_datto(f
     error = (await call("dattormm_get_devices", **args))["error"]
     assert error["code"] == "invalid_argument" and error["retryable"] is False
     assert not fake.requests
+
+
+@pytest.mark.asyncio
+async def test_alerts_resume_continues_exactly_by_offset(fake, call):
+    # TC-DATTO-006 (AC6): same continuation guarantee as devices/components,
+    # exercised through dattormm_get_alerts.
+    ids, _ = await walk(call, "dattormm_get_alerts", {"max_results": 7}, id_key="alertUid")
+    assert ids == [f"alert-{i:04d}" for i in range(90)]
 
 
 @pytest.mark.asyncio
