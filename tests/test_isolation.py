@@ -81,6 +81,35 @@ async def test_alerts_tenant_isolation_matches_devices(monkeypatch):
         assert "cookie" not in request.headers, (request.url.path, request.headers.get("cookie"))
 
 
+@pytest.mark.asyncio
+async def test_job_result_uses_each_tenants_own_credentials(monkeypatch):
+    # TC-DATTO-113 (PRD-22489): the result call carries the calling tenant's own credentials.
+    seen: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/auth/oauth/token":
+            tag = (
+                "a"
+                if "key-a" in request.content.decode() or "key-a" in request.headers.get("authorization", "")
+                else "b"
+            )
+            return httpx.Response(200, json={"access_token": f"token-{tag}"})
+        seen.append((request.url.path, request.headers["authorization"]))
+        return httpx.Response(200, json={"jobDeploymentStatus": "Pending", "componentResults": []})
+
+    monkeypatch.setattr(
+        server, "DattoClient", functools.partial(api_client.DattoClient, transport=httpx.MockTransport(handler))
+    )
+    mcp = server.create_mcp_server(Settings())
+    for key in ("key-a", "key-b"):
+        token = server._gateway_creds_var.set(server._GatewayCreds(key, "secret", BASE))
+        try:
+            await mcp.call_tool("dattormm_get_job_result", {"job_uid": "j", "device_uid": "d"})
+        finally:
+            server._gateway_creds_var.reset(token)
+    assert [a for _, a in seen] == ["Bearer token-a", "Bearer token-b"]
+
+
 def test_no_module_level_http_client_or_mutable_state():
     for path in SRC.rglob("*.py"):
         tree = ast.parse(path.read_text())

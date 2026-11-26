@@ -139,16 +139,13 @@ def create_mcp_server(settings: Settings) -> FastMCP:
             "find a device_uid (pass hostname); dattormm_get_components to find "
             "a component_uid (pass name); dattormm_run_component to trigger it "
             "(destructive, irreversible - requires confirm=true); "
-            "dattormm_get_job_status to check whether it finished; "
+            "dattormm_get_job_result (job_uid + device_uid) to poll the outcome "
+            "(running, success, warning, failed...) and read stdout/stderr; "
             "dattormm_get_alerts to see what's alerting (account-, device- or "
             "site-scoped); dattormm_resolve_alert to clear one (destructive, "
             "irreversible - requires confirm=true, no unresolve/reopen exists "
-            "in this API). IMPORTANT KNOWN LIMITATION, confirmed against Datto's "
-            "own current API documentation: there is no way to retrieve a job's "
-            "success/failure, exit code, or stdout/stderr through this API - "
-            "dattormm_get_job_status can only confirm the job reached a terminal "
-            'state ("completed"), never whether it succeeded. Do not claim or '
-            "imply a result you cannot see."
+            "in this API). Never report a job as succeeded before "
+            "dattormm_get_job_result says so."
         ),
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
         # No session state between requests: tools/list works without an initialize handshake.

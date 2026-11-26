@@ -85,9 +85,10 @@ Links: [connect.mspbots.ai](https://connect.mspbots.ai) · [mspbots.ai](https://
   something on it → `dattormm_get_devices`
 - "What scripts/components can we run?" → `dattormm_get_components`
 - "Run [component] on [device] now" → `dattormm_run_component`
-  (⚠️ destructive, irreversible — see Known Gaps for what you can and can't
-  confirm afterward)
+  (⚠️ destructive, irreversible — read the outcome afterward with
+  `dattormm_get_job_result`)
 - "Did that job finish?" → `dattormm_get_job_status`
+- "Did it succeed, and what did it print?" → `dattormm_get_job_result`
 - "What's alerting right now?" / narrow to one device or site → `dattormm_get_alerts`
 - "Resolve alert [id], I've fixed it" → `dattormm_resolve_alert`
   (⚠️ destructive, irreversible — Datto has no unresolve/reopen action)
@@ -100,12 +101,13 @@ Authorization requires the `X-Datto-Api-Key` and `X-Datto-Api-Secret` request he
 |---|---|---|
 | `dattormm_get_devices` | List the devices under the tenant's Datto RMM account, compact by default | `offset`, `max_results` (default 50, max 250), `page`, `hostname`, `site_name`, `device_type`, `operating_system`, `full_response` (all optional) |
 | `dattormm_get_components` | List the runnable components/script library, with their variables | `name`, `offset`, `max_results`, `page` (all optional) |
-| `dattormm_run_component` | Run the specified component on the specified device immediately (Datto's "Quick Job"), **destructive and irreversible** | `device_uid` (required), `component_uid` (required), `variables` (optional), `confirm` (required, must be true) |
+| `dattormm_run_component` | Run the specified component on the specified device immediately (Datto's "Quick Job"), **destructive and irreversible** | `device_uid` (required), `component_uid` (required), `variables` (optional), `job_name` (optional), `confirm` (required, must be true) |
 | `dattormm_get_job_status` | Check whether a job has reached a terminal state | `job_uid` (required) |
+| `dattormm_get_job_result` | Read a job's outcome (`running`, `pending`, `success`, `warning`, `failed`, `expired`, `retired`, `unknown`) and each component's stdout/stderr (last 8,000 characters each) on one device | `job_uid` (required), `device_uid` (required) |
 | `dattormm_get_alerts` | List alerts — account-wide, or narrowed to one device or site | `status` (`open` default or `resolved`), `device_uid`, `site_uid` (mutually exclusive), `muted`, `offset`, `max_results`, `page` (all optional) |
 | `dattormm_resolve_alert` | Resolve the specified alert, **destructive and irreversible** (no unresolve/reopen exists in Datto's API) | `alert_uid` (required), `confirm` (required, must be true) |
 
-> **`dattormm_get_job_status` can only confirm whether the job is "completed", not whether it succeeded**; see Known Gaps.
+> **`dattormm_get_job_status` only says whether the job is "completed"**; use `dattormm_get_job_result` for success or failure and the output. A failed component is always reported as `failed`, and an unrecognized status as `unknown`, never as success.
 
 List results are `{"items", "count", "limit", "offset", "has_more"}` (plus `total_count`). When `has_more` is true, `next_offset` is where to continue: it starts right after the last record returned, also when a page was cut to fit the 20,000-character limit, so following it never skips a record. A call can return fewer than `limit` records while more remain. A full Datto device record is about 5,000 characters, so devices come back with the main fields (uid, hostname, site, OS, online state, last seen, IPs, antivirus, patch status) unless `full_response` is true. `hostname`, `site_name`, `device_type` and `operating_system` are partial matches done by Datto; the component `name` filter is applied here, scanning up to 1,000 components per call. Invalid arguments (negative `page` / `offset`, `max_results` outside 1-250, a missing required argument) return the `invalid_argument` envelope without calling Datto.
 
@@ -134,6 +136,8 @@ curl http://localhost:8080/health
 ```
 
 No credentials are required for the health endpoint.
+
+**Test connection (platform health probe).** The gateway's probe makes one real read-only tool call only when the integration has `health_tool` set and `health_enabled=true`. Recommended for Datto RMM: `health_tool=dattormm_get_components`, `health_tool_args={"max_results": 1}`. No code change is needed; a rejected key/secret comes back as `unauthorized`.
 
 ## Authentication
 
@@ -210,35 +214,21 @@ curl -X POST http://localhost:8080/mcp \
     not from a real call. **Test this for real (a Datto trial/sandbox
     account, or an explicit customer-consented dry run) before treating this
     tool as production-ready.**
-- **No success/failure or stdout/stderr reporting, on purpose — and this is
-  not a version artifact.** Datto's own current API documentation states
-  outright: "It is not possible from within the API to examine the success
-  or failure result of a completed job schedule and access the
-  StdOut/StdErr." Datto's **v14.0.0 release notes separately claim** "New API
-  endpoints under v2/job now allow retrieval of job results, including
-  StdOut and StdErr" — these two official Datto documents contradict each
-  other, and this investigation could not resolve it: the "new endpoint" the
-  release notes describe was never found (WebSearch results describing it
-  could not be traced to a real, citable page), and there's no way to read a
-  tested account's platform version from the API to know whether it should
-  even have this capability. What's certain: **the two real accounts tested,
-  right now, do not return this data via `GET /v2/job/{jobUid}`.** Given
-  this, `dattormm_get_job_status`'s docstring is deliberately conservative —
-  it reports only "reached a terminal state," never success. Do not add a
-  success/failure field to this tool without a fresh, real test proving the
-  new endpoint (whatever it turns out to be) actually exists and works.
-- **`dattormm_run_component`'s request shape is desk-verified, not
-  field-verified.** `{"componentUid": ..., "<variableName>": "<value>", ...}`
-  is what Datto's docs say to send; the docs also say a successful response
-  contains a `uid` usable as `dattormm_get_job_status`'s `job_uid` — this
-  server is built to that contract, but no real call has confirmed it works
-  as documented, whether variable names are validated, or what a validation
-  error actually looks like from this specific endpoint (blind probing
-  during this investigation got a generic `{"detail":"Failed to read
-  request"}` for every guessed body shape, including ones matching the
-  eventual documented shape — that response never got more specific no
-  matter what was sent, so it's untested whether the documented shape
-  actually parses).
+- **Job results are desk-verified, not field-verified (PRD-22489).** Datto's
+  OpenAPI document (`/api/v3/api-docs`) has `GET /v2/job/{jobUid}/results/{deviceUid}`
+  (job and per-component status) and its `/stdout` and `/stderr`;
+  `dattormm_get_job_result` is built on them. Older Datto text says results
+  cannot be read through the API; the OpenAPI document is newer. Confirm on a
+  sandbox account that Datto reports a non-zero exit as `Failure` — the tool
+  returns Datto's raw statuses (`job_status`, per-component `status`) next to
+  the derived `outcome` so a difference is visible.
+- **`dattormm_run_component`'s request shape follows the OpenAPI, not a real
+  call.** The body is `{"jobName", "jobComponent": {"componentUid",
+  "variables": [{"name", "value"}]}}` (earlier versions sent a flat body that
+  did not match). No real call has confirmed it is accepted, whether variable
+  names are validated, or what a validation error looks like. **Test this for
+  real (a Datto trial/sandbox account, or an explicit customer-consented dry
+  run) before treating this tool as production-ready.**
 - **componentUid discovery**: `dattormm_get_components` is the intended way
   to find one (confirmed working), even though Datto's own docs say to copy
   it from the UI manually — the API path works in practice, use it.

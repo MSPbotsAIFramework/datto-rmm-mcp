@@ -1,0 +1,290 @@
+[
+ {
+  "id": "TC-DATTO-101",
+  "ac": "AC1",
+  "dw": "DW1",
+  "text": "Given two variables UserName=jdoe.test and Ou=OU=Test, when `dattormm_run_component` is called with confirm=true, then Datto receives one PUT to `/api/v2/device/<uid>/quickjob` whose body has `jobName` and `jobComponent.componentUid` and `variables` = two name/value objects, and the output has a top-level `job_uid` equal to Datto's `job.uid`.",
+  "type": "auto",
+  "source": "design",
+  "priority": "P1",
+  "data": "none; mocked Datto API (httpx.MockTransport)",
+  "data_ready": true,
+  "tests": [
+   "tests/test_jobs.py::test_run_component_sends_job_name_and_variable_list_and_returns_job_uid"
+  ],
+  "result": "pass",
+  "evidence": "uv run pytest tests/test_jobs.py::test_run_component_sends_job_name_and_variable_list_and_returns_job_uid PASSED at 9461c6b (full run: 67 passed, 0 failed)."
+ },
+ {
+  "id": "TC-DATTO-102",
+  "ac": "AC1",
+  "dw": "DW1",
+  "text": "Given `confirm` omitted, when `dattormm_run_component` is called, then it returns `invalid_argument` and no request reaches Datto.",
+  "type": "auto",
+  "source": "design",
+  "priority": "P1",
+  "data": "none; mocked Datto API (httpx.MockTransport)",
+  "data_ready": true,
+  "tests": [
+   "tests/test_jobs.py::test_run_component_without_confirm_makes_no_request"
+  ],
+  "result": "pass",
+  "evidence": "uv run pytest tests/test_jobs.py::test_run_component_without_confirm_makes_no_request PASSED at 9461c6b (full run: 67 passed, 0 failed)."
+ },
+ {
+  "id": "TC-DATTO-103",
+  "ac": "AC1",
+  "dw": "DW1",
+  "text": "Given no `variables`, when the component runs, then the body has no `variables` key and the call still succeeds; given no `job_name`, then `jobName` starts with `MSPbots quick job`.",
+  "type": "auto",
+  "source": "design",
+  "priority": "P1",
+  "data": "none; mocked Datto API (httpx.MockTransport)",
+  "data_ready": true,
+  "tests": [
+   "tests/test_jobs.py::test_run_component_without_variables_omits_them_and_defaults_job_name"
+  ],
+  "result": "pass",
+  "evidence": "uv run pytest tests/test_jobs.py::test_run_component_without_variables_omits_them_and_defaults_job_name PASSED at 9461c6b (full run: 67 passed, 0 failed)."
+ },
+ {
+  "id": "TC-DATTO-104",
+  "ac": "AC1",
+  "dw": "DW1",
+  "text": "Given the component list with variables, when `dattormm_get_components` is called with `max_results=1`, then exactly one component with its variables is returned.",
+  "type": "auto",
+  "source": "design",
+  "priority": "P1",
+  "data": "none; mocked Datto API (httpx.MockTransport)",
+  "data_ready": true,
+  "tests": [
+   "tests/test_jobs.py::test_get_components_max_results_one_returns_one_component_with_variables"
+  ],
+  "result": "pass",
+  "evidence": "uv run pytest tests/test_jobs.py::test_get_components_max_results_one_returns_one_component_with_variables PASSED at 9461c6b (full run: 67 passed, 0 failed)."
+ },
+ {
+  "id": "TC-DATTO-105",
+  "ac": "AC2",
+  "dw": "DW2",
+  "text": "Given a finished job with Success status, when `dattormm_get_job_result` is called, then `outcome` is `success` and each component has its stdout and stderr text.",
+  "type": "auto",
+  "source": "design",
+  "priority": "P1",
+  "data": "none; mocked Datto API (httpx.MockTransport)",
+  "data_ready": true,
+  "tests": [
+   "tests/test_jobs.py::test_job_result_success_includes_stdout_and_stderr"
+  ],
+  "result": "pass",
+  "evidence": "uv run pytest tests/test_jobs.py::test_job_result_success_includes_stdout_and_stderr PASSED at 9461c6b (full run: 67 passed, 0 failed)."
+ },
+ {
+  "id": "TC-DATTO-106",
+  "ac": "AC2",
+  "dw": "DW2",
+  "text": "Given a job still `Running` (or `Pending`), when the result is read, then `outcome` is `running` (`pending`) and neither stdout nor stderr is requested.",
+  "type": "auto",
+  "source": "design",
+  "priority": "P1",
+  "data": "none; mocked Datto API (httpx.MockTransport)",
+  "data_ready": true,
+  "tests": [
+   "tests/test_jobs.py::test_job_result_running_does_not_fetch_streams"
+  ],
+  "result": "pass",
+  "evidence": "uv run pytest tests/test_jobs.py::test_job_result_running_does_not_fetch_streams PASSED at 9461c6b (full run: 67 passed, 0 failed)."
+ },
+ {
+  "id": "TC-DATTO-107",
+  "ac": "AC2",
+  "dw": "DW2",
+  "text": "Given the tool list, when `tools/list` runs, then 7 tools are listed and `dattormm_get_job_result` is read-only with required `job_uid` and `device_uid`.",
+  "type": "auto",
+  "source": "design",
+  "priority": "P1",
+  "data": "none; mocked Datto API (httpx.MockTransport)",
+  "data_ready": true,
+  "tests": [
+   "tests/test_tools.py::test_tools_list_snapshot"
+  ],
+  "result": "pass",
+  "evidence": "uv run pytest tests/test_tools.py::test_tools_list_snapshot PASSED at 9461c6b (full run: 67 passed, 0 failed)."
+ },
+ {
+  "id": "TC-DATTO-108",
+  "ac": "AC3",
+  "dw": "DW3",
+  "text": "Given a job with `Failure` (job or component level), when the result is read, then `outcome` is `failed` and the stderr text is present.",
+  "type": "auto",
+  "source": "design",
+  "priority": "P1",
+  "data": "none; mocked Datto API (httpx.MockTransport)",
+  "data_ready": true,
+  "tests": [
+   "tests/test_jobs.py::test_job_result_failure_is_failed_with_stderr"
+  ],
+  "result": "pass",
+  "evidence": "uv run pytest tests/test_jobs.py::test_job_result_failure_is_failed_with_stderr PASSED at 9461c6b (full run: 67 passed, 0 failed)."
+ },
+ {
+  "id": "TC-DATTO-109",
+  "ac": "AC3",
+  "dw": "DW3",
+  "text": "Given an unknown status value or a result with no status, when the result is read, then `outcome` is `unknown`, never `success`.",
+  "type": "auto",
+  "source": "design",
+  "priority": "P1",
+  "data": "none; mocked Datto API (httpx.MockTransport)",
+  "data_ready": true,
+  "tests": [
+   "tests/test_jobs.py::test_job_result_unknown_status_is_never_success"
+  ],
+  "result": "pass",
+  "evidence": "uv run pytest tests/test_jobs.py::test_job_result_unknown_status_is_never_success PASSED at 9461c6b (full run: 67 passed, 0 failed)."
+ },
+ {
+  "id": "TC-DATTO-110",
+  "ac": "AC3",
+  "dw": "DW3",
+  "text": "Given a job uid Datto does not know, when the result is read, then a `not_found` error is returned and no stdout/stderr call is made.",
+  "type": "auto",
+  "source": "design",
+  "priority": "P1",
+  "data": "none; mocked Datto API (httpx.MockTransport)",
+  "data_ready": true,
+  "tests": [
+   "tests/test_jobs.py::test_job_result_unknown_job_returns_not_found"
+  ],
+  "result": "pass",
+  "evidence": "uv run pytest tests/test_jobs.py::test_job_result_unknown_job_returns_not_found PASSED at 9461c6b (full run: 67 passed, 0 failed)."
+ },
+ {
+  "id": "TC-DATTO-111",
+  "ac": "AC3",
+  "dw": "DW3",
+  "text": "Given stdout longer than 8,000 characters, when the result is read, then only the last 8,000 are returned and `stdout_truncated` is true.",
+  "type": "auto",
+  "source": "design",
+  "priority": "P1",
+  "data": "none; mocked Datto API (httpx.MockTransport)",
+  "data_ready": true,
+  "tests": [
+   "tests/test_jobs.py::test_job_result_truncates_long_stdout_to_tail"
+  ],
+  "result": "pass",
+  "evidence": "uv run pytest tests/test_jobs.py::test_job_result_truncates_long_stdout_to_tail PASSED at 9461c6b (full run: 67 passed, 0 failed)."
+ },
+ {
+  "id": "TC-DATTO-112",
+  "ac": "AC4",
+  "dw": "DW4",
+  "text": "Given valid credentials, when `dattormm_get_components` is called with `max_results=1` (the owl probe call), then one `GET /api/v2/account/components` with `max=1` is made and at most one item returned; given a rejected key/secret, then an `unauthorized` error is returned.",
+  "type": "auto",
+  "source": "design",
+  "priority": "P1",
+  "data": "none; mocked Datto API (httpx.MockTransport)",
+  "data_ready": true,
+  "tests": [
+   "tests/test_jobs.py::test_probe_call_reads_one_component_and_maps_401_to_unauthorized"
+  ],
+  "result": "pass",
+  "evidence": "uv run pytest tests/test_jobs.py::test_probe_call_reads_one_component_and_maps_401_to_unauthorized PASSED at 9461c6b (full run: 67 passed, 0 failed)."
+ },
+ {
+  "id": "TC-DATTO-113",
+  "ac": "AC6",
+  "dw": "DW2",
+  "text": "Given two tenants with different Datto credentials calling `dattormm_get_job_result` concurrently, when both complete, then each Datto request carried its own tenant's credentials.",
+  "type": "auto",
+  "source": "design",
+  "priority": "P1",
+  "data": "none; mocked Datto API (httpx.MockTransport)",
+  "data_ready": true,
+  "tests": [
+   "tests/test_isolation.py::test_job_result_uses_each_tenants_own_credentials"
+  ],
+  "result": "pass",
+  "evidence": "uv run pytest tests/test_isolation.py::test_job_result_uses_each_tenants_own_credentials PASSED at 9461c6b (full run: 67 passed, 0 failed)."
+ },
+ {
+  "id": "TC-DATTO-114",
+  "ac": "AC4",
+  "dw": "DW4",
+  "text": "Given the Datto RMM connector connected in a test tenant with the owl probe configured, when the user clicks Test connection, then it reports a pass that names one item read from Datto RMM; with a wrong API secret it reports that credentials were rejected.",
+  "type": "manual",
+  "source": "design",
+  "priority": "P1",
+  "data": "Datto RMM sandbox credentials in a test tenant; owl `health_tool` set for `datto-rmm`",
+  "data_ready": false,
+  "steps": [
+   "On INT, in the test tenant connected to the Datto RMM sandbox, perform the action stated in the case via the agent on SOP 314 or the connector page",
+   "Read the tool result / Test connection outcome"
+  ],
+  "expect": "it reports a pass that names one item read from Datto RMM; with a wrong API secret it reports that credentials were rejected.",
+  "result": "untested",
+  "precond": "as user:dev01.mbagent@mspbots.ai in tenant mspbots (see references/test-resources.md); Datto RMM sandbox credentials in a test tenant; owl `health_tool` set for `datto-rmm`",
+  "data_needs": "Datto RMM sandbox credentials in a test tenant; owl `health_tool` set for `datto-rmm`",
+  "data_from": "Datto RMM account owner (Mandy to name) and the MB-12700 lab owner"
+ },
+ {
+  "id": "TC-DATTO-115",
+  "ac": "AC1",
+  "dw": "DW1",
+  "text": "Given a Datto RMM sandbox with a lab device and a test component with two input variables, when the agent runs it and polls, then it gets a job uid, reaches `completed`, and reads status plus stdout/stderr.",
+  "type": "manual",
+  "source": "design",
+  "priority": "P1",
+  "data": "Datto RMM sandbox account on SOP 314 and an agent on the lab DC or a member server",
+  "data_ready": false,
+  "steps": [
+   "On INT, in the test tenant connected to the Datto RMM sandbox, perform the action stated in the case via the agent on SOP 314 or the connector page",
+   "Read the tool result / Test connection outcome"
+  ],
+  "expect": "it gets a job uid, reaches `completed`, and reads status plus stdout/stderr.",
+  "result": "untested",
+  "precond": "as user:dev01.mbagent@mspbots.ai in tenant mspbots (see references/test-resources.md); Datto RMM sandbox account on SOP 314 and an agent on the lab DC or a member server",
+  "data_needs": "Datto RMM sandbox account on SOP 314 and an agent on the lab DC or a member server",
+  "data_from": "Datto RMM account owner (Mandy to name) and the MB-12700 lab owner"
+ },
+ {
+  "id": "TC-DATTO-116",
+  "ac": "AC3",
+  "dw": "DW3",
+  "text": "Given a test component that exits non-zero, when the agent reads the result, then `outcome` is `failed` and stderr is in the result.",
+  "type": "manual",
+  "source": "design",
+  "priority": "P1",
+  "data": "same sandbox plus a component that exits non-zero",
+  "data_ready": false,
+  "steps": [
+   "On INT, in the test tenant connected to the Datto RMM sandbox, perform the action stated in the case via the agent on SOP 314 or the connector page",
+   "Read the tool result / Test connection outcome"
+  ],
+  "expect": "`outcome` is `failed` and stderr is in the result.",
+  "result": "untested",
+  "precond": "as user:dev01.mbagent@mspbots.ai in tenant mspbots (see references/test-resources.md); same sandbox plus a component that exits non-zero",
+  "data_needs": "same sandbox plus a component that exits non-zero",
+  "data_from": "Datto RMM account owner (Mandy to name) and the MB-12700 lab owner"
+ },
+ {
+  "id": "TC-DATTO-117",
+  "ac": "AC5",
+  "dw": "DW5",
+  "text": "Given SOP 314 in the lab, when the on-prem step runs after \"Approve new user?\", then one made-up user exists in the test OU, synced to 2qmxyw, with the job result read by the agent and no live system touched.",
+  "type": "manual",
+  "source": "design",
+  "priority": "P1",
+  "data": "Full lab: sandbox account, agent on MSPBOTS-ADTEST, test OU, limited service account, delta-sync permission",
+  "data_ready": false,
+  "steps": [
+   "On INT, in the test tenant connected to the Datto RMM sandbox, perform the action stated in the case via the agent on SOP 314 or the connector page",
+   "Read the tool result / Test connection outcome"
+  ],
+  "expect": "one made-up user exists in the test OU, synced to 2qmxyw, with the job result read by the agent and no live system touched.",
+  "result": "untested",
+  "precond": "as user:dev01.mbagent@mspbots.ai in tenant mspbots (see references/test-resources.md); Full lab: sandbox account, agent on MSPBOTS-ADTEST, test OU, limited service account, delta-sync permission",
+  "data_needs": "Full lab: sandbox account, agent on MSPBOTS-ADTEST, test OU, limited service account, delta-sync permission",
+  "data_from": "Datto RMM account owner (Mandy to name) and the MB-12700 lab owner"
+ }
+]
