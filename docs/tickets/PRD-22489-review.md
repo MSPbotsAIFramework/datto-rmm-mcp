@@ -1,5 +1,7 @@
 # PRD-22489 · Code review
 
+Status: frozen @ cd42e20
+
 ## Round 1 · 2026-11-26 · reviewed cd42e20 (base 34eb533)
 
 Verdict: approved
